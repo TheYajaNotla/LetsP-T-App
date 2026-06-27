@@ -24,7 +24,7 @@ st.set_page_config(
 # Deep integration of PRVNT's premium, minimal, human-centric design tokens
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
     
     html, body, [class*="css"], .stApp {
         font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
@@ -192,3 +192,58 @@ with st.form("prvnt_master_intake_matrix"):
 
     # ------------------------------------------
     # SECTION 1: PERSONAL INFORMATION
+    # ------------------------------------------
+    st.markdown("### 1. Personal Identity & Background")
+    st.markdown('<p class="section-subtitle">This section helps us understand your basic informational profile to smoothly coordinate your preventive wellness architecture.</p>', unsafe_allow_html=True)
+    
+    st.markdown("<div class='field-group-title'>Identity Profiles</div>", unsafe_allow_html=True)
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        full_name = st.text_input("Full name (as shown on official ID) *", value=st.session_state.get('full_name', ''))
+    with c2:
+        preferred_name = st.text_input("Preferred name", value=st.session_state.get('preferred_name', ''))
+    with c3:
+        dob = st.text_input("Date of Birth (DD/MM/YYYY) *", value=st.session_state.get('dob', ''))
+        
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        legal_sex = st.selectbox("Sex assigned at birth *", ["", "Female", "Male", "Intersex", "Prefer not to answer"])
+    with c5:
+        pronouns = st.text_input("Preferred pronouns (Optional)", value=st.session_state.get('pronouns', ''))
+    with c6:
+        preferred_lang = st.text_input("Preferred language for care communication", value=st.session_state.get('preferred_lang', 'English'))
+
+    st.markdown("<div class='field-group-title'>Biometric Measurements</div>", unsafe_allow_html=True)
+    c7, c8, c9 = st.columns(3)
+    with c7:
+        height_metric = st.text_input("Height (e.g., cm or ft/in) *", value=st.session_state.get('height_metric', ''))
+    with c8:
+        weight_metric = st.text_input("Current weight (e.g., kg or lbs) *", value=st.session_state.get('weight_metric', ''))
+    with c9:
+        historical_weight = st.text_input("Usual adult weight (if consistently different)", value=st.session_state.get('historical_weight', ''))
+
+    st.markdown("<div class='field-group-title'>Primary Reachability</div>", unsafe_allow_html=True)
+    c10, c11 = st.columns(2)
+    with c10:
+        client_phone = st.text_input("Mobile number *", value=st.session_state.get('client_phone', ''))
+    with c11:
+        client_email = st.text_input("Email address *", value=st.session_state.get('client_email', ''))
+
+    st.markdown("<div class='field-group-title'>Emergency Contacts</div>", unsafe_allow_html=True)
+    c12, c13, c14 = st.columns(3)
+    with c12:
+        emergency_name = st.text_input("Contact name *", value=st.session_state.get('emergency_name', ''))
+    with c13:
+        emergency_rel = st.text_input("Relationship to you *", value=st.session_state.get('emergency_rel', ''))
+    with c14:
+        emergency_phone = st.text_input("Telephone number *", value=st.session_state.get('emergency_phone', ''))
+
+    st.markdown("<div class='field-group-title'>Professional & Environmental Context</div>", unsafe_allow_html=True)
+    c15, c16 = st.columns(2)
+    with c15:
+        edu_tier = st.text_input("Highest education level completed", value=st.session_state.get('edu_tier', ''))
+        job_role = st.text_input("Current occupation or primary daily focus", value=st.session_state.get('job_role', ''))
+        work_physicality = st.selectbox("Which description matches your daily movement pattern?", ["", "Mostly sitting", "Mostly standing", "Physically active", "Mixed", "Student", "Retired", "Homemaker", "Other"])
+    with c16:
+        occupational_stresses = st.multiselect(
+            "Does your daily schedule or environment involve any of the following characteristics? (Select all that apply)",
