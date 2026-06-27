@@ -564,6 +564,3 @@ def main():
     with tabs[-1]:
         review_tab()
 
-
-if __name__ == "__main__":
-    main()
