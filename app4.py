@@ -26,14 +26,13 @@ FREQ = ["Never", "Occasionally", "Often", "Almost always"]
 SECTIONS = [
     {
         "title": "Profile",
-        "summary": "Core identity, contact details, and basic body metrics.",
+        "summary": "Core identity, contact details and basic body metrics.",
         "questions": [
             ("fullname", "Full name", "text", {"required": True}),
             ("preferred_name", "Preferred name", "text", {}),
             ("dob", "Date of birth", "date", {"default": date(1990, 1, 1), "required": True}),
             ("age", "Age", "number", {"min": 0, "max": 120, "default": 35}),
-            ("sex", "Sex assigned at birth", "select", {"options": ["Female", "Male", "Intersex", "Prefer not to answer"]}),
-            ("pronouns", "Preferred pronouns", "select", {"options": ["She / Her", "He / Him", "They / Them", "Other", "Prefer not to answer"]}),
+            ("sex", "Sex", "select", {"options": ["Female", "Male", "Intersex", "Prefer not to answer"]}),
             ("height", "Height", "text", {"placeholder": "cm or ft/in"}),
             ("weight_curr", "Current weight", "text", {"placeholder": "kg or lb"}),
             ("language", "Preferred language", "text", {"default": "English"}),
@@ -43,7 +42,7 @@ SECTIONS = [
     },
     {
         "title": "Life Context",
-        "summary": "Daily context that shapes health, access, support, and follow-through.",
+        "summary": "Daily context that shapes health, access, support and follow-through.",
         "questions": [
             ("occupation", "Current occupation or primary daily role", "text", {}),
             ("work_type", "Which best describes your work?", "select", {"options": ["Mostly sitting", "Mostly standing", "Physically active", "Mixed", "Student", "Retired", "Homemaker", "Other"]}),
@@ -56,7 +55,7 @@ SECTIONS = [
     },
     {
         "title": "Care Team",
-        "summary": "Current providers, care coordination, and record sharing preferences.",
+        "summary": "Current providers, care coordination and record sharing preferences.",
         "questions": [
             ("regular_provider", "Regular doctor or primary healthcare provider", "text", {}),
             ("active_care_team", "Healthcare professionals currently involved in your care", "multi", {"options": ["Family physician", "Cardiologist", "Endocrinologist", "Gastroenterologist", "Neurologist", "Psychiatrist", "Psychologist", "Dietitian", "Physiotherapist", "Dentist", "Ophthalmologist", "Other"]}),
@@ -79,7 +78,7 @@ SECTIONS = [
     },
     {
         "title": "Medical History",
-        "summary": "Past and current diagnoses, hospital use, and unresolved patterns.",
+        "summary": "Past and current diagnoses, hospital use and unresolved patterns.",
         "questions": [
             ("conditions", "Past or current diagnoses", "multi", {"options": ["High blood pressure", "Prediabetes", "Type 2 diabetes", "High cholesterol", "Coronary artery disease", "Heart attack history", "Stroke / TIA", "Sleep apnoea", "Asthma", "COPD", "Chronic kidney disease", "Fatty liver disease", "GERD", "IBS", "Thyroid disease", "Autoimmune disease", "Osteoporosis", "Cancer history", "Depression", "Anxiety", "Migraine", "Chronic pain", "Other"]}),
             ("current_active_conditions", "Which conditions are currently active or requiring follow-up?", "area", {}),
@@ -90,7 +89,7 @@ SECTIONS = [
     },
     {
         "title": "Medicines",
-        "summary": "Medications, supplements, allergies, and safety signals.",
+        "summary": "Medications, supplements, allergies and safety signals.",
         "questions": [
             ("takes_rx", "Are you currently taking prescription medications?", "radio", {"options": YES_NO}),
             ("rx_details", "Prescription medications with doses and frequencies", "area", {}),
@@ -105,7 +104,7 @@ SECTIONS = [
     },
     {
         "title": "Family & Procedures",
-        "summary": "Surgical history, anesthesia issues, and inherited risk.",
+        "summary": "Surgical history, anesthesia issues and inherited risk.",
         "questions": [
             ("surgery_history", "Past surgeries or invasive procedures", "area", {}),
             ("anaesthesia_complications", "Complications or side effects from anesthesia", "area", {}),
@@ -117,17 +116,29 @@ SECTIONS = [
         "title": "Symptoms",
         "summary": "A focused review of symptoms across body systems.",
         "questions": [
-            ("sym_fatigue", "Fatigue interfering with daily life", "slider_select", {"options": FREQ}),
-            ("sym_weight_change", "Unintentional weight change", "slider_select", {"options": FREQ}),
-            ("sym_rash", "Recurring rash or skin changes", "slider_select", {"options": FREQ}),
-            ("sym_headache", "Headaches or migraines", "slider_select", {"options": FREQ}),
-            ("sym_chest_pain", "Chest pain, pressure, or tightness", "slider_select", {"options": FREQ}),
-            ("sym_breathlessness", "Shortness of breath", "slider_select", {"options": FREQ}),
-            ("sym_reflux", "Heartburn or reflux", "slider_select", {"options": FREQ}),
-            ("sym_bowel_change", "Change in bowel habit", "slider_select", {"options": FREQ}),
-            ("sym_joint_pain", "Joint pain or swelling", "slider_select", {"options": FREQ}),
-            ("sym_anxiety", "Feeling anxious, worried, or unable to relax", "slider_select", {"options": FREQ}),
-            ("sym_sadness", "Feeling sad, down, or hopeless", "slider_select", {"options": FREQ}),
+            ("sym_fever", "Recurrent fevers, dynamic temperature shifts, or nocturnal night sweats?", "slider_select", {"options": FREQ}),
+            ("sym_weight_change", "Unintentional, rapid modifications to body weight parameters?", "slider_select", {"options": FREQ}),
+            ("sym_fatigue", "Persistent exhaustion that disrupts normal cognitive or physical focus?", "slider_select", {"options": FREQ}),
+            ("sym_rash", "Recurring skin rashes, unexpected dermal changes, or barrier shifts?", "slider_select", {"options": FREQ}),
+            ("sym_bruising", "Tendency to bruise easily or develop unprovoked hematomas?", "slider_select", {"options": FREQ}),
+            ("sym_hair_loss", "Accelerated hair loss or sudden thinning?", "slider_select", {"options": FREQ}),
+            ("sym_headache", "Frequent localized headaches, dynamic tension bands, or visual migraines?", "slider_select", {"options": FREQ}),
+            ("sym_dizziness", "Vertigo, unsteadiness, or orthostatic fainting sensations?", "slider_select", {"options": FREQ}),
+            ("sym_vision", "Unexplained or sudden adjustments to visual clarity?", "slider_select", {"options": FREQ}),
+            ("sym_chest_pain", "Cardiovascular pressure, restrictive chest pain, or radiating tightness?", "slider_select", {"options": FREQ}),
+            ("sym_palpitations", "Premature atrial fluttering, skipped beats, or rapid unprovoked racing?", "slider_select", {"options": FREQ}),
+            ("sym_breathlessness", "Shortness of breath (dyspnoea) at rest or under minor physical workloads?", "slider_select", {"options": FREQ}),
+            ("sym_reflux", "Gastrointestinal reflux, frequent pyrosis, or acid indigestion?", "slider_select", {"options": FREQ}),
+            ("sym_abdominal_pain", "Unspecified abdominal pain, bloating, or visceral layout cramping?", "slider_select", {"options": FREQ}),
+            ("sym_bowel_change", "Recent or persistent changes to regular bowel habit outputs?", "slider_select", {"options": FREQ}),
+            ("sym_joint_pain", "Articular joint pain, early morning stiffness, or structural fluid swelling?", "slider_select", {"options": FREQ}),
+            ("sym_numbness", "Peripheral neuropathy, unexpected tingling, or focal motor weakness tracks?", "slider_select", {"options": FREQ}),
+            ("sym_cold_intolerance", "Abnormal physical sensitivity or low tolerance to cool environments?", "slider_select", {"options": FREQ}),
+            ("sym_thirst", "Persistent unprovoked thirst (polydipsia indicators)?", "slider_select", {"options": FREQ}),
+            ("sym_anxiety", "Persistent psychological anxiety, hyperarousal, or difficulty relaxing?", "slider_select", {"options": FREQ}),
+            ("sym_sadness", "Prolonged flat affect, feelings of low mood, or diminished motivation?", "slider_select", {"options": FREQ}),
+            ("sym_other_details", "Clarify any alternative physical anomalies or trends our clinical team should look into:", "area", {}),
+        ],
             ("sym_other_details", "Other symptoms or patterns PRVNT should know about", "area", {}),
         ],
     },
