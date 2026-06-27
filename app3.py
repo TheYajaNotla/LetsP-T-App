@@ -2,6 +2,7 @@ import hashlib
 import json
 import os
 import time
+import base64
 from datetime import date, datetime
 
 import pandas as pd
@@ -158,7 +159,7 @@ SECTIONS = [
 
 
 def inject_css():
-        st.markdown("""
+    st.markdown("""
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
@@ -177,7 +178,7 @@ def inject_css():
         font-family:"Plus Jakarta Sans", "Segoe UI", Arial, sans-serif;
     }
 
-    h1, h2, h3, h4,
+    h1,h2,h3,h4,
     .hero h1,
     .section-intro h2,
     .metric strong {
@@ -185,9 +186,7 @@ def inject_css():
         letter-spacing:0 !important;
     }
 
-    p, label, span, div, button, input, textarea,
-    .stMarkdown, .stTextInput, .stSelectbox, .stMultiSelect,
-    .stRadio, .stSlider, .stDateInput, .stNumberInput {
+    p,label,span,div,button,input,textarea {
         font-family:"Plus Jakarta Sans", "Segoe UI", Arial, sans-serif !important;
     }
 
@@ -205,6 +204,37 @@ def inject_css():
             linear-gradient(110deg,rgba(14,42,54,.98),rgba(31,78,99,.88)),
             radial-gradient(circle at 84% 20%,rgba(144,183,198,.38),transparent 36%);
         border-bottom:5px solid var(--mist);
+    }
+
+    .hero-topline {
+        display:flex;
+        align-items:center;
+        gap:18px;
+        margin-bottom:28px;
+    }
+
+    .hero-logo-slot {
+        width:112px;
+        height:52px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border:1px solid rgba(255,255,255,.34);
+        background:rgba(255,255,255,.08);
+    }
+
+    .hero-logo-img {
+        max-width:96px;
+        max-height:36px;
+        object-fit:contain;
+    }
+
+    .hero-logo-placeholder {
+        color:#fff;
+        font-family:"Space Grotesk", "Segoe UI", Arial, sans-serif !important;
+        font-weight:700;
+        letter-spacing:.08em;
+        font-size:.92rem;
     }
 
     .eyebrow {
@@ -295,38 +325,9 @@ def inject_css():
 
     @media (max-width:760px) {
         .hero { padding:42px 24px 28px; }
+        .hero-topline { align-items:flex-start; flex-direction:column; }
         .metric-row { grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
-    .hero-topline {
-    display:flex;
-    align-items:center;
-    gap:18px;
-    margin-bottom:28px;
-}
-
-.hero-logo-slot {
-    width:96px;
-    height:44px;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    border:1px solid rgba(255,255,255,.34);
-    background:rgba(255,255,255,.08);
-}
-
-.hero-logo-img {
-    max-width:82px;
-    max-height:30px;
-    object-fit:contain;
-}
-
-.hero-logo-placeholder {
-    color:#fff;
-    font-family:"Space Grotesk", "Segoe UI", Arial, sans-serif;
-    font-weight:700;
-    letter-spacing:.08em;
-    font-size:.9rem;
-}
     </style>
     """, unsafe_allow_html=True)
 
@@ -513,31 +514,35 @@ def review_tab():
 
 
 def main():
-    logo_html = ""
-if os.path.exists(LOGO_PATH):
-    import base64
+    inject_css()
+    ensure_state()
 
-    with open(LOGO_PATH, "rb") as logo_file:
-        logo_b64 = base64.b64encode(logo_file.read()).decode()
+    answered, total, required_missing = completion_stats()
+    elapsed = int(time.time() - st.session_state.started_at)
+    minutes, seconds = divmod(elapsed, 60)
+    progress = answered / total if total else 0
 
-    logo_html = f'<img src="data:image/png;base64,{logo_b64}" alt="PRVNT logo" class="hero-logo-img">'
-else:
-    logo_html = '<div class="hero-logo-placeholder">PRVNT</div>'
+    if os.path.exists(LOGO_PATH):
+        with open(LOGO_PATH, "rb") as logo_file:
+            logo_b64 = base64.b64encode(logo_file.read()).decode()
+        logo_html = f'<img src="data:image/png;base64,{logo_b64}" alt="PRVNT logo" class="hero-logo-img">'
+    else:
+        logo_html = '<div class="hero-logo-placeholder">PRVNT</div>'
 
-st.markdown(f"""
-<section class="hero">
-    <div class="hero-topline">
-        <div class="hero-logo-slot">{logo_html}</div>
-        <div class="eyebrow">PRVNT Comprehensive Health Questionnaire</div>
-    </div>
+    st.markdown(f"""
+    <section class="hero">
+        <div class="hero-topline">
+            <div class="hero-logo-slot">{logo_html}</div>
+            <div class="eyebrow">PRVNT Comprehensive Health Questionnaire</div>
+        </div>
 
-    <h1>Health onboarding, made precise and personal.</h1>
-    <p>
-        A structured health intake experience designed to turn personal history,
-        goals, symptoms, habits and prevention priorities to begin your PRVNT journey.
-    </p>
-</section>
-""", unsafe_allow_html=True)
+        <h1>Health onboarding, made precise and personal.</h1>
+        <p>
+            A structured health intake experience designed to turn personal history,
+            goals, symptoms, habits and prevention priorities into the beginning of your PRVNT journey.
+        </p>
+    </section>
+    """, unsafe_allow_html=True)
 
     st.markdown(f"""
     <div class="metric-row">
