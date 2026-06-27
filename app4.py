@@ -320,7 +320,7 @@ def ensure_state():
 
 
 def show_header():
-    left, right = st.columns([1, 4])
+    left, right = st.columns([1, 10])
 
     with left:
         if os.path.exists(LOGO_PATH):
