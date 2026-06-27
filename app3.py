@@ -16,7 +16,7 @@ st.set_page_config(
     initial_sidebar_state="collapsed",
 )
 
-LOGO_PATH = "assets/prvnt-logo.png"
+LOGO_PATH = "Copy of PRVNT Logo.jpg"
 
 YES_NO = ["No", "Yes"]
 YES_NO_UNSURE = ["No", "Yes", "Unsure"]
