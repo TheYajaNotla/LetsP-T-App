@@ -139,8 +139,7 @@ SECTIONS = [
             ("sym_sadness", "Prolonged flat affect, feelings of low mood, or diminished motivation?", "slider_select", {"options": FREQ}),
             ("sym_other_details", "Clarify any alternative physical anomalies or trends our clinical team should look into:", "area", {}),
         ],
-            ("sym_other_details", "Other symptoms or patterns PRVNT should know about", "area", {}),
-        ],
+        
     },
     {
         "title": "Lifestyle",
