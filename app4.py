@@ -372,7 +372,7 @@ def ensure_state():
         st.session_state.form_data = {}
 
 
-ddef show_header():
+def show_header():
     st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
     logo_col, title_col = st.columns([1.2, 5])
