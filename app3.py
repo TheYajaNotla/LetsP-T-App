@@ -591,15 +591,30 @@ def render_question(key, label, qtype, cfg):
 
 def render_section(section, index):
     st.markdown(
-        f"""
-        <div class="section-intro">
-            <small>Step {index}</small>
-            <h2>{section["title"]}</h2>
-            <p>{section["summary"]}</p>
+    f"""
+    <header class="prvnt-header">
+        <div class="brand-row">
+            <div class="brand-left">
+                <div class="logo-mark">{logo_html()}</div>
+                <div>
+                    <div class="brand-name">PRVNT</div>
+                    <div class="brand-subtitle">Comprehensive Health Questionnaire</div>
+                </div>
+            </div>
+            <div class="privacy-pill">Private intake workspace</div>
         </div>
-        """,
-        unsafe_allow_html=True,
-    )
+
+        <div class="header-copy">
+            <h1>Your health intake, thoughtfully organized.</h1>
+            <p>
+                Share your background, goals, symptoms, lifestyle signals, and prevention priorities
+                so your PRVNT care team can begin with clarity.
+            </p>
+        </div>
+    </header>
+    """,
+    unsafe_allow_html=True,
+)
 
     questions = section["questions"]
     for i in range(0, len(questions), 2):
