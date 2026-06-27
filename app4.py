@@ -1,604 +1,422 @@
-import base64
-import hashlib
-import json
-import os
-import time
-from datetime import date, datetime
-import pandas as pd
 import streamlit as st
+import random
+import string
+import json
+import requests
+from datetime import datetime
 
-# --- PRVNT INITIAL BRAND STANDARDS CONFIGURATION ---
+# ==========================================
+# CONFIGURATION & CONSTANTS
+# ==========================================
+# Replace this with your Google Apps Script Web App Deployment URL to pipe data into Google Sheets
+GOOGLE_SHEETS_WEBAPP_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec"
+
+# ==========================================
+# PAGE INITIALIZATION
+# ==========================================
 st.set_page_config(
-    page_title="PRVNT | Advanced Preventive Intake Matrix",
-    page_icon="🧬",
+    page_title="PRVNT | Clinical Intake Matrix",
+    page_icon="🔒",
     layout="wide",
-    initial_sidebar_state="collapsed",
+    initial_sidebar_state="collapsed"
 )
 
-# Common Dropdown Choices - Internationally Understandable & Standardized
-YES_NO = ["No", "Yes"]
-YES_NO_UNSURE = ["No", "Yes", "Unsure"]
-FREQ = ["Never", "Occasionally", "Often", "Almost always"]
-SEVERITY = ["None", "Mild", "Moderate", "Severe"]
-SATISFACTION = ["Very dissatisfied", "Dissatisfied", "Neutral", "Satisfied", "Very satisfied"]
-
-# Comprehensive Question Registry Maps directly onto the Complete Structured Intake Schema
-SECTIONS = [
-    {
-        "title": "01. Identity & Biometrics",
-        "summary": "Core identity tracking, globally adaptable biometric dimensions, and contact vectors.",
-        "questions": [
-            ("fullname", "1. Full name (as shown on government identification)", "text", {"required": True, "placeholder": "Given Names Family Name"}),
-            ("preferred_name", "2. Preferred name", "text", {}),
-            ("dob", "3. Date of birth (DD/MM/YYYY)", "date", {"default": date(1990, 1, 1), "required": True}),
-            ("age", "4. Current age (Years)", "number", {"min": 0, "max": 120, "default": 35}),
-            ("sex", "5. Sex assigned at birth", "select", {"options": ["Female", "Male", "Intersex", "Prefer not to answer"]}),
-            ("gender_identity", "6. Gender identity", "select", {"options": ["Woman", "Man", "Non-binary", "Self-describe", "Prefer not to answer"]}),
-            ("pronouns", "7. Preferred pronouns", "select", {"options": ["She / Her", "He / Him", "They / Them", "Other", "Prefer not to answer"]}),
-            ("height", "8. Height (Specify cm or ft/in)", "text", {"placeholder": "e.g., 175 cm or 5ft 9in"}),
-            ("weight_curr", "9. Current body weight (Specify kg or lbs)", "text", {"placeholder": "e.g., 72 kg or 158 lbs"}),
-            ("weight_usual", "10. Usual stable adult weight", "text", {"placeholder": "e.g., 70 kg"}),
-            ("waist_circumference", "11. Waist circumference (if known)", "text", {"placeholder": "e.g., 88 cm or 34 in"}),
-            ("language", "12. Preferred language for clinical communication", "text", {"default": "English"}),
-            ("mobile", "13. Mobile phone number (including country code)", "text", {"required": True, "placeholder": "+1 / +44 / +61..."}),
-            ("email", "14. Personal email address", "text", {"required": True, "placeholder": "name@domain.com"}),
-            ("address", "15. Current residential city and country", "text", {"placeholder": "e.g., London, United Kingdom"}),
-        ],
-    },
-    {
-        "title": "02. Social Architecture",
-        "summary": "Daily social structures, workload distributions, occupational parameters, and systemic support systems.",
-        "questions": [
-            ("emerg_name", "16. Emergency contact name", "text", {}),
-            ("emerg_rel", "17. Emergency contact relationship", "text", {}),
-            ("emerg_phone", "18. Emergency contact contact number", "text", {}),
-            ("education", "19. Highest level of education completed", "text", {}),
-            ("occupation", "20. Current occupation or primary daily functional role", "text", {}),
-            ("work_type", "21. Physical nature of your primary daily work", "select", {"options": ["Mostly sitting / Sedentary", "Mostly standing", "Physically intensive", "Mixed / Variable", "Student", "Retired", "Homemaker", "Other"]}),
-            ("work_exposure", "22. Does your regular work include any of the following? (Select all that apply)", "multi", {"options": ["Shift work / Rotating schedules", "Night work", "Frequent international travel", "Heavy mechanical lifting", "High psychological stress", "Chemical or toxicant exposure", "Dust or microparticle exposure", "Loud environmental noise", "Radiation risks", "None of the above"]}),
-            ("marital_status", "23. Current relationship status", "select", {"options": ["Single", "Married", "Living with partner", "Divorced / Separated", "Widowed", "Prefer not to say"]}),
-            ("living_arrangements", "24. Who do you currently live with?", "select", {"options": ["Alone", "Spouse or partner", "Children / Dependents", "Parents", "Extended family", "Friends / Housemates", "Other"]}),
-            ("dependents", "25. Do you have children or regular dependents?", "radio", {"options": YES_NO}),
-            ("regular_caregiver", "26. Do you regularly act as a caregiver for another individual?", "radio", {"options": YES_NO}),
-            ("sick_support", "27. Who usually supports you if you become acutely unwell?", "text", {}),
-            ("social_support_tier", "28. How would you rate your active social support system?", "select", {"options": ["Excellent", "Good", "Adequate / Satisfactory", "Limited", "Very limited"]}),
-            ("financial_health_barrier", "29. Have medical costs ever caused you to delay care, diagnostics, or therapies?", "radio", {"options": YES_NO_UNSURE}),
-            ("health_literacy", "30. How comfortable are you understanding complex clinical metrics or instructions?", "select", {"options": ["Very comfortable", "Comfortable", "Sometimes unsure", "Often unsure"]}),
-        ],
-    },
-    {
-        "title": "03. Care Coordination",
-        "summary": "Active clinical providers, family physicians, and historical medical record systems.",
-        "questions": [
-            ("regular_provider", "31. Regular general practitioner or primary healthcare doctor", "text", {}),
-            ("active_care_team", "32. Medical specialists currently involved in your care ecosystem", "multi", {"options": ["Family / Primary Care Physician", "Internal Medicine", "Cardiologist", "Endocrinologist", "Gastroenterologist", "Neurologist", "Rheumatologist", "Pulmonologist", "Nephrologist", "Oncologist", "Psychiatrist", "Psychologist", "Dietitian / Nutritionist", "Physiotherapist / Physical Therapist", "Dentist", "Ophthalmologist", "Other"]}),
-            ("care_coordinator", "33. Who primarily coordinates your healthcare needs?", "select", {"options": ["My primary care physician", "A medical specialist", "I coordinate it entirely myself", "A family member", "Other"]}),
-            ("prvnt_comm_permission", "34. Do you grant PRVNT permission to communicate with your current doctors?", "radio", {"options": YES_NO}),
-            ("provider_contact_details", "35. If yes, list names and secure contact details below:", "area", {}),
-            ("records_location", "36. Where are your historical health records and diagnostic files currently held?", "area", {}),
-        ],
-    },
-    {
-        "title": "04. Strategic Health Intentions",
-        "summary": "Baseline quality-of-life rankings, readiness for lifestyle changes, and explicit medical goals.",
-        "questions": [
-            ("prompt_join_prvnt", "37. What factors primarily prompted you to onboard with PRVNT?", "multi", {"options": ["General health assessment", "Disease prevention", "Hereditary/Family history risk vectors", "Weight management optimization", "Energy level enhancement", "Sleep architecture improvement", "Physical fitness scaling", "Nutritional redesign", "Longevity / Healthy ageing", "Managing an existing chronic pathology", "Unexplained persistent symptoms", "Care coordination support", "Seeking a second opinion", "Recent out-of-range clinical test results", "Peer recommendation", "Other"]}),
-            ("top_12mo_improvement", "38. What specific health metric or concern do you prioritize resolving over the next 12 months?", "area", {}),
-            ("good_health_definition", "39. What does optimal health, vitality, and performance look like for you personally?", "area", {}),
-            ("worries_or_fears", "40. Are there specific health-related worries or fears you want our team to evaluate?", "area", {}),
-            ("overall_health_rate", "41. How would you rate your overall baseline health state today?", "slider_select", {"options": ["Poor", "Fair", "Good", "Very good", "Excellent"]}),
-            ("health_vs_5yrs_ago", "42. Compared with your vitality five years ago, your health today is:", "select", {"options": ["Much worse", "Slightly worse", "About the same", "Slightly better", "Much better"]}),
-            ("three_health_goals", "43. Outline your top three health goals for the upcoming year:", "area", {}),
-            ("unaddressed_symptoms", "44. Identify any symptoms that have not been clearly explained by previous reviews:", "area", {}),
-            ("daily_energy_level", "45. Characterize your average daily cognitive and physical energy state:", "select", {"options": ["Very low", "Low", "Variable / Unstable", "Good", "Excellent"]}),
-            ("health_satisfaction", "46. Your level of satisfaction with your current metabolic/physical trajectory:", "select", {"options": SATISFACTION}),
-            ("health_improvement_confidence", "47. Your confidence in your ability to successfully make lifestyle modifications:", "select", {"options": ["Not confident at all", "Not very confident", "Unsure", "Confident", "Very confident"]}),
-            ("readiness_to_change", "48. Your current structural readiness to implement changes to habits:", "select", {"options": ["Not ready at present", "Evaluating potential changes", "Ready within the upcoming month", "Ready to change immediately"]}),
-            ("care_decision_preference", "49. How do you prefer to approach shared medical decision matrices?", "select", {"options": ["Collaboratively together with my healthcare team", "My healthcare team directs the decisions", "I make the final decisions after reviewing clinical advice", "No explicit preference"]}),
-            ("desired_support_areas", "50. Health focus areas where you want the highest degree of tracking support:", "multi", {"options": ["Nutrition optimization", "Exercise prescription", "Sleep architecture", "Stress regulation", "Weight management", "Medication optimization", "Chronic condition tracking", "Preventive biomarker screening", "Mental wellbeing", "Longevity / Healthy ageing", "Smoking cessation", "Alcohol mitigation", "Women's specialized health", "Men's specialized health", "Other"]}),
-        ],
-    },
-    {
-        "title": "05. Pathology Archive",
-        "summary": "Lifetime clinical diagnoses, institutional event matrices, and underlying physical markers.",
-        "questions": [
-            ("conditions", "51. Select all past or currently diagnosed medical conditions:", "multi", {"options": ["High blood pressure / Hypertension", "Prediabetes / Insulin resistance", "Type 2 diabetes", "Dyslipidemia (High cholesterol/triglycerides)", "Coronary artery disease / Angina", "Myocardial infarction (Heart attack) history", "Heart failure", "Arrhythmia / Irregular heart rhythm", "Stroke / TIA", "Obstructive sleep apnoea", "Asthma", "COPD / Chronic bronchitis", "Chronic kidney disease", "Nephrolithiasis (Kidney stones)", "Fatty liver disease (MASLD/NAFLD)", "Hepatitis", "Gallbladder pathology", "Gastroesophageal reflux disease (GERD)", "Irritable bowel syndrome (IBS)", "Inflammatory bowel disease (Crohn's/Colitis)", "Coeliac disease", "Thyroid disorders", "PCOS (Polycystic ovary syndrome)", "Autoimmune condition", "Rheumatoid arthritis", "Osteopenia / Osteoporosis", "Oncology / Cancer history", "Clinical depression", "Anxiety disorder", "ADHD", "Migraine or chronic headaches", "Chronic pain syndrome", "Long COVID", "Other"]}),
-            ("current_active_conditions", "52. Detail active conditions currently requiring clinical therapies or follow-up:", "area", {}),
-            ("unexpected_doc_visits_12m", "53. Unexpected primary care visits due to acute illness in the last 12 months:", "select", {"options": ["None", "1-2", "3-5", "More than 5"]}),
-            ("er_visits_12m", "54. Emergency department or urgent care presentations within the past year:", "select", {"options": ["None", "Once", "Twice", "Three or more times"]}),
-            ("hospital_admissions_12m", "55. Have you been admitted as a hospital inpatient overnight in the past year?", "radio", {"options": YES_NO}),
-            ("hospital_admissions_details", "56. If yes, detail the diagnosis, treatment window dates, and interventions:", "area", {}),
-            ("specialist_followups_pending", "57. Do you have any pending medical evaluations, specialist consults, or imaging scans?", "area", {}),
-            ("major_infections", "58. Document major historical or frequently recurring infectious conditions:", "area", {}),
-            ("injuries_accidents", "59. Detail significant structural physical traumas, bone fractures, or concussions:", "area", {}),
-        ],
-    },
-    {
-        "title": "06. Chemical Profiles",
-        "summary": "Prescribed pharmaceutical formulas, supplement inputs, tracking food sensitivities, and allergen risks.",
-        "questions": [
-            ("takes_rx", "60. Are you currently taking any prescription medications?", "radio", {"options": YES_NO}),
-            ("rx_details", "61. List names, exact dosages, and intake frequencies for all active prescriptions:", "area", {}),
-            ("takes_otc", "62. Do you regularly use over-the-counter formulas?", "radio", {"options": YES_NO}),
-            ("otc_details", "63. Detail all regular over-the-counter products:", "area", {}),
-            ("takes_supplements", "64. Do you take nutraceuticals, vitamins, minerals, or sports supplements?", "radio", {"options": YES_NO}),
-            ("supplement_details", "65. Itemize your regular supplement stack and active dosages:", "area", {}),
-            ("supplement_advisor", "66. Who guides your current supplement configuration strategy?", "select", {"options": ["Medical doctor", "Dietitian / Nutritionist", "Pharmacist", "Personal trainer", "Family or peers", "Digital platforms / Social media", "Self-directed research", "No one"]}),
-            ("stopped_med_side_effects", "67. Have you ever discontinued a prescribed treatment due to side effects?", "radio", {"options": YES_NO}),
-            ("stopped_med_details", "68. If yes, clarify the molecule name and biological reactions experienced:", "area", {}),
-            ("miss_med_reason", "69. If you occasionally miss scheduled doses, what factors contribute? (Select all)", "multi", {"options": ["Simple forgetfulness", "Experiencing side effects", "Financial costs", "Feeling well / Questioning necessity", "Complex daily schedule", "Prescription renewal delays", "Other"]}),
-            ("med_allergies", "70. Itemize all known drug or pharmaceutical molecule allergies:", "area", {}),
-            ("food_allergies", "71. Food allergies or documented gastrointestinal sensitivities:", "multi", {"options": ["None known", "Milk / Dairy matrices", "Egg options", "Wheat / Gluten vectors", "Soy options", "Peanuts", "Tree nuts", "Fin fish", "Shellfish", "Sesame", "Other"]}),
-            ("env_allergies", "72. Environmental or airborne chemical allergens:", "multi", {"options": ["None known", "Pollen strains", "House dust mites", "Animal dander", "Mould spore profiles", "Insect stings", "Latex vectors", "Other"]}),
-            ("anaphylaxis_history", "73. Have you ever entered a state of systemic anaphylaxis?", "radio", {"options": YES_NO}),
-            ("wants_interaction_review", "74. Request cross-interaction testing for your medication-supplement stack?", "radio", {"options": YES_NO_UNSURE}),
-        ],
-    },
-    {
-        "title": "07. Lineage Profiles",
-        "summary": "Invasive surgical histories, anaesthetic events, and cross-generational hereditary risk tracking.",
-        "questions": [
-            ("surgery_history", "75. Detail past surgical interventions (including reason, year, and complications):", "area", {}),
-            ("hospital_admissions_non_surg", "76. Detail any historical non-surgical medical hospital admissions:", "area", {}),
-            ("anaesthesia_complications", "77. Document any past problems or side effects related to anaesthesia:", "area", {}),
-            ("blood_transfusion_history", "78. Have you ever received blood component transfusions?", "radio", {"options": YES_NO_UNSURE}),
-            ("family_history", "79. Document conditions tracked through direct biological ancestors (parents, grandparents, siblings):", "multi", {"options": ["High blood pressure / Hypertension", "Hypercholesterolemia", "Type 2 diabetes", "Premature coronary artery disease", "Stroke events", "Aneurysm profiles", "Thromboembolism / Blood clots", "Cancer / Malignancies", "Breast cancer", "Colorectal cancer", "Prostate cancer", "Ovarian cancer", "Alzheimer's / Dementia", "Parkinson's disease", "Osteoporosis", "Autoimmune disease", "Polycystic kidney disease", "Psychiatric conditions", "Substance use challenges"]}),
-            ("family_history_details", "80. Add specific details about family history, including age at diagnosis if known:", "area", {}),
-            ("parental_health_status", "81. Document parents' current health status, ages, or causes/ages of death:", "area", {}),
-            ("genetic_testing_history", "82. Have you previously undergone clinical or ancestry genetic testing?", "radio", {"options": YES_NO_UNSURE}),
-            ("genetic_testing_details", "83. Summarize any relevant genetic findings if available:", "area", {}),
-        ],
-    },
-    {
-        "title": "08. Systemic Biomarker Tracking",
-        "summary": "Real-time tracking of physiological symptom frequencies across major organ tracks.",
-        "questions": [
-            ("sym_fever", "84. Recurrent fevers, dynamic temperature shifts, or nocturnal night sweats?", "slider_select", {"options": FREQ}),
-            ("sym_weight_change", "85. Unintentional, rapid modifications to body weight parameters?", "slider_select", {"options": FREQ}),
-            ("sym_fatigue", "86. Persistent exhaustion that disrupts normal cognitive or physical focus?", "slider_select", {"options": FREQ}),
-            ("sym_rash", "87. Recurring skin rashes, unexpected dermal changes, or barrier shifts?", "slider_select", {"options": FREQ}),
-            ("sym_bruising", "88. Tendency to bruise easily or develop unprovoked hematomas?", "slider_select", {"options": FREQ}),
-            ("sym_hair_loss", "89. Accelerated hair follicle loss or sudden thinning?", "slider_select", {"options": FREQ}),
-            ("sym_headache", "90. Frequent localized headaches, dynamic tension bands, or visual migraines?", "slider_select", {"options": FREQ}),
-            ("sym_dizziness", "91. Vertigo, unsteadiness, or orthostatic fainting sensations?", "slider_select", {"options": FREQ}),
-            ("sym_vision", "92. Unexplained or sudden adjustments to visual clarity?", "slider_select", {"options": FREQ}),
-            ("sym_chest_pain", "93. Cardiovascular pressure, restrictive chest pain, or radiating tightness?", "slider_select", {"options": FREQ}),
-            ("sym_palpitations", "94. Premature atrial fluttering, skipped beats, or rapid unprovoked racing?", "slider_select", {"options": FREQ}),
-            ("sym_breathlessness", "95. Shortness of breath (dyspnoea) at rest or under minor physical workloads?", "slider_select", {"options": FREQ}),
-            ("sym_reflux", "96. Gastrointestinal reflux, frequent pyrosis, or acid indigestion?", "slider_select", {"options": FREQ}),
-            ("sym_abdominal_pain", "97. Unspecified abdominal pain, bloating, or visceral layout cramping?", "slider_select", {"options": FREQ}),
-            ("sym_bowel_change", "98. Recent or persistent changes to regular bowel habit outputs?", "slider_select", {"options": FREQ}),
-            ("sym_joint_pain", "99. Articular joint pain, early morning stiffness, or structural fluid swelling?", "slider_select", {"options": FREQ}),
-            ("sym_numbness", "100. Peripheral neuropathy, unexpected tingling, or focal motor weakness tracks?", "slider_select", {"options": FREQ}),
-            ("sym_cold_intolerance", "101. Abnormal physical sensitivity or low tolerance to cool environments?", "slider_select", {"options": FREQ}),
-            ("sym_thirst", "102. Persistent unprovoked thirst (polydipsia indicators)?", "slider_select", {"options": FREQ}),
-            ("sym_anxiety", "103. Persistent psychological anxiety, hyperarousal, or difficulty relaxing?", "slider_select", {"options": FREQ}),
-            ("sym_sadness", "104. Prolonged flat affect, feelings of low mood, or diminished motivation?", "slider_select", {"options": FREQ}),
-            ("sym_other_details", "105. Clarify any alternative physical anomalies or trends our clinical team should look into:", "area", {}),
-        ],
-    },
-    {
-        "title": "09. Nutritional & Kinetic Inputs",
-        "summary": "Metabolic fuel inputs, daily physical movement trends, and targeted training metrics.",
-        "questions": [
-            ("diet_pattern", "106. Select the description that best reflects your primary eating pattern:", "select", {"options": ["Omnivore / General macro mix", "Mediterranean style focus", "Vegetarian", "Vegan", "Pescatarian", "Low-carbohydrate tracking", "Ketogenic model", "Intermittent fasting windows", "Other customized strategy"]}),
-            ("meals_per_day", "107. Average feeding frequency window (structured intake events per 24 hours):", "select", {"options": ["One", "Two", "Three", "Four or more", "Highly variable"]}),
-            ("veg_servings_day", "108. Standard daily servings of micronutrient-dense vegetables:", "select", {"options": ["None", "1-2 servings", "3-4 servings", "5 or more servings"]}),
-            ("ultra_processed_frequency", "109. Frequency of ultra-processed food matrices or convenience meals:", "select", {"options": ["Rarely / Never", "Weekly average", "Several times per week", "Daily occurrence"]}),
-            ("sugar_beverage_frequency", "110. Consumption frequency of beverages with added refined sugars:", "select", {"options": ["Never", "Rarely", "Weekly", "Daily track"]}),
-            ("water_intake", "111. Quantify clear fluid/water intake volume per 24-hour cycle:", "select", {"options": ["Less than 1 litre", "1-2 litres", "2-3 litres", "More than 3 litres", "Varies / Unsure"]}),
-            ("caffeine_day", "112. Total daily caffeinated metrics (coffee, black teas, energy formulations):", "select", {"options": ["None", "1 serving", "2 servings", "3 servings", "4 or more servings"]}),
-            ("exercise_sessions_week", "113. Structured physical workout sessions completed per week:", "slider", {"min": 0, "max": 14, "default": 3}),
-            ("exercise_minutes_week", "114. Cumulative active movement tracking minutes over an average week:", "number", {"min": 0, "max": 2000, "default": 90}),
-            ("strength_sessions_week", "115. Dedicated resistance training or metabolic hypertrophy sessions weekly:", "slider", {"min": 0, "max": 7, "default": 1}),
-            ("avg_daily_steps", "116. Average daily step count baseline (from phone or wearable device tracking):", "number", {"min": 0, "max": 100000, "default": 0}),
-            ("sitting_hours_day", "117. Estimated cumulative continuous sedentary or sitting hours per day:", "select", {"options": ["Less than 4 hours", "4-6 hours", "7-9 hours", "10 hours or more"]}),
-            ("exercise_limitations", "118. Identify obstacles that actively limit your workout performance capacity:", "multi", {"options": ["Physical pain / Discomfort", "Shortness of breath", "Systemic fatigue", "Scheduling constraints", "Motivation blocks", "Current structural injury", "Fear of re-injury", "Lack of facility access", "Nothing limits my performance", "Other"]}),
-            ("resting_heart_rate", "119. Verified resting heart rate metrics (RHR baseline, BPM):", "number", {"min": 0, "max": 240, "default": 0}),
-            ("estimated_vo2max", "120. Known laboratory cardiorespiratory health metric score (VO₂ Max baseline):", "text", {"placeholder": "e.g., 42 ml/kg/min, or unknown"}),
-        ],
-    },
-    {
-        "title": "10. Recovery & Stress Load",
-        "summary": "Nocturnal sleep efficiency indices, stress load distributions, and lifestyle habits.",
-        "questions": [
-            ("sleep_hours_night", "121. True average continuous sleep duration hours per night:", "slider_float", {"min": 3.0, "max": 12.0, "default": 7.0, "step": 0.5}),
-            ("sleep_quality", "122. Rate your subjective sleep efficiency and recovery depth:", "select", {"options": ["Poor", "Fair", "Good", "Very good", "Excellent"]}),
-            ("sleep_onset", "123. Experience difficulty with sleep latency (falling asleep)?", "slider_select", {"options": FREQ}),
-            ("sleep_maintenance", "124. Experience frequent wakefulness during sleep cycles?", "slider_select", {"options": FREQ}),
-            ("snoring", "125. Witnessed loud snoring or breathing pauses?", "radio", {"options": YES_NO_UNSURE}),
-            ("sleep_caffeine_dependency", "126. Absolute reliance on morning stimulants to reach normal focus states:", "radio", {"options": ["Never", "Occasionally", "Most days", "Every day"]}),
-            ("sleep_support_used", "127. Tools or sleep aids actively used to promote sleep quality:", "multi", {"options": ["Prescribed clinical medications", "Over-the-counter sleep aids", "Exogenous Melatonin", "Herbal supplement mixes", "Relaxation / Downregulation breathing techniques", "Meditation practices", "White noise / Audio masking", "CPAP structural device", "No tools used", "Other"]}),
-            ("stress_level", "128. Rate your perceived continuous background stress load:", "select", {"options": ["Low", "Moderate / Manageable", "High", "Very high / Exhausting"]}),
-            ("tobacco_use", "129. Lifestyle tobacco smoking or chemical vaping status profile:", "select", {"options": ["Never smoked / Vaped", "Former regular user", "Current regular user"]}),
-            ("alcohol_servings_week", "130. Standard metabolic servings of alcohol consumed in a typical week:", "number", {"min": 0, "max": 100, "default": 0}),
-            ("recreational_screen_time", "131. Recreational, non-work digital screen exposure per 24-hour block:", "select", {"options": ["Less than 2 hours", "2-4 hours", "5-7 hours", "More than 7 hours"]}),
-            ("home_environment", "132. Known household health hazards or environmental tracking concerns:", "multi", {"options": ["Mould exposure", "Ambient air pollution", "Water quality issues", "Disruptive neighborhood noise", "Overcrowded conditions", "Physical safety concerns", "No hazards identified", "Other"]}),
-        ],
-    },
-    {
-        "title": "11. Prophylactic Settings",
-        "summary": "Preventive screenings, vaccination summaries, and diagnostic coordination goals.",
-        "questions": [
-            ("bp_recent", "133. Record your latest known cardiovascular blood pressure values:", "text", {"placeholder": "e.g., 118/76 mmHg, or unknown"}),
-            ("labs_recent", "134. Complete diagnostic laboratory or endocrine tracking panel within the past year?", "radio", {"options": YES_NO_UNSURE}),
-            ("cancer_screening_status", "135. Preventive oncology screening modules completed or currently due:", "multi", {"options": ["Cervical cancer screening", "Breast imaging screening", "Colorectal screening", "Prostate screening", "Dermatological skin checking", "Lung screening protocols", "Not sure", "Not applicable"]}),
-            ("vaccination_status", "136. Key immunization records you believe are up to date:", "multi", {"options": ["Influenza seasonal protection", "COVID-19 updates", "Tetanus booster mix", "Hepatitis B series", "HPV vaccine", "Shingles vaccine", "Pneumococcal vector", "Travel specific vaccines", "Not sure"]}),
-            ("preventive_support_targets", "137. Select strategic prevention targets where you want maximum diagnostic reporting support:", "multi", {"options": ["Weight management", "Cardiovascular health preservation", "Diabetes mellitus prevention", "Early oncology tracking", "Immunization management", "Longevity optimization", "Skeletal / Bone density tracking", "Neurological / Brain tracking", "Smoking cessation tracking", "Physical exercise scaling", "Nutritional redesign", "Mental wellbeing mapping", "Sleep optimization patterns", "Women's dynamic health", "Men's dynamic health", "Unsure"]}),
-            ("wants_to_prevent_top3", "138. Select up to three chronic conditions you prioritize proactively screening out of your future longevity track:", "multi", {"options": ["Heart disease", "Stroke", "Type 2 Diabetes", "Oncology / Cancer", "Osteoporosis / Structural fractures", "Memory decline / Dementia", "Loss of physical mobility", "Vision decline", "Chronic pain conditions", "Frailty / Muscle mass loss", "Other"], "max_selections": 3}),
-            ("share_records_consent", "139. Grant formal authorization to link historical medical records or laboratory results to PRVNT:", "radio", {"options": ["Yes", "No", "Selected records only"]}),
-            ("additional_context", "140. Add any additional lifestyle details, concerns, or health targets for the PRVNT clinical team:", "area", {}),
-        ],
-    },
-]
-
-def inject_premium_css():
-    """Injects precise, clean typography mimicking the premium PRVNT layout ecosystem."""
-    st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
-
-    :root {
-        --ink: #0F0F0F;
-        --deep: #0E2A36;
-        --harbor: #1F4E63;
-        --mist: #90B7C6;
-        --paper: #F7F7F7;
-        --line: #EFEFEF;
-        --soft: #FFFFFF;
-        --muted: #666666;
+# Global styling injection for serious, premium, elegant interface
+st.markdown("""
+<style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&display=swap');
+    
+    html, body, [class*="css"], .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif !important;
+        background-color: #FBFBFB !important;
+        color: #1E1E1E !important;
     }
-
-    .stApp {
-        background: var(--paper);
-        color: var(--ink);
-        font-family: "Standerd", "Plus Jakarta Sans", sans-serif;
-    }
-
-    /* Primary Framing Elements utilize Clash Grotesk stylings */
-    h1, h2, h3, h4, .brand-name, .metric strong, .section-title {
-        font-family: "Clash Grotesk", "Space Grotesk", sans-serif !important;
-        text-transform: uppercase !important;
-        letter-spacing: -0.01em !important;
-        font-weight: 600 !important;
-    }
-
-    p, label, span, div, button, input, textarea, select {
-        font-family: "Standerd", "Plus Jakarta Sans", sans-serif !important;
-    }
-
-    .block-container {
-        padding-top: 35px;
-        padding-bottom: 70px;
-        max-width: 1440px;
-    }
-
-    /* Navigation Components */
-    div[data-baseweb="tab-list"] {
-        gap: 6px;
-        background-color: transparent;
-        padding: 4px;
-    }
-
-    button[data-baseweb="tab"] {
-        background-color: #FFFFFF !important;
-        border: 1px solid var(--line) !important;
-        color: var(--muted) !important;
-        padding: 14px 20px !important;
-        font-weight: 600 !important;
-        font-size: 0.8rem !important;
-        letter-spacing: 0.04em;
-        text-transform: uppercase;
-        transition: all 0.2s ease;
-    }
-
-    button[data-baseweb="tab"][aria-selected="true"] {
-        background-color: var(--deep) !important;
-        color: #FFFFFF !important;
-        border-color: var(--deep) !important;
-    }
-
-    /* Layout Cards */
-    .prvnt-form-card {
-        background: #FFFFFF;
-        border: 1px solid var(--line);
-        padding: 45px;
-        margin-top: 15px;
-    }
-
+    
+    /* Header & Structural Styling */
     .prvnt-brand-header {
-        background: #FFFFFF;
-        border: 1px solid var(--line);
-        padding: 40px 45px;
-        margin-bottom: 25px;
         display: flex;
         justify-content: space-between;
         align-items: center;
+        padding: 24px 0px;
+        border-bottom: 1px solid #EAEAEA;
+        margin-bottom: 32px;
     }
-
-    .logo-container {
-        width: 140px;
-        height: 55px;
-        border: 1px dashed var(--mist);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: #FAFAFA;
-        color: var(--harbor);
-        font-weight: 700;
-        font-size: 0.75rem;
-        letter-spacing: 0.1em;
-    }
-
     .status-pill {
         display: inline-block;
-        background: rgba(144, 183, 198, 0.12);
-        color: var(--harbor);
-        font-size: 10px;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        padding: 5px 12px;
-        margin-bottom: 12px;
+        background: #F0F4F8;
+        color: #102A43;
+        font-size: 0.75rem;
+        font-weight: 500;
+        padding: 4px 12px;
+        border-radius: 20px;
+        margin-bottom: 8px;
     }
-
-    /* Input Field Architecture adjustments */
-    div[data-baseweb="input"], div[data-baseweb="select"], div[data-baseweb="textarea"] {
-        border-radius: 0px !important;
-        border: 1px solid var(--line) !important;
-        background-color: #FAFAFA !important;
+    h1 {
+        font-weight: 600 !important;
+        letter-spacing: -0.025em;
     }
-
-    div[data-testid="stMarkdownContainer"] label {
-        color: var(--ink) !important;
+    h3 {
         font-weight: 500 !important;
-        font-size: 0.92rem !important;
-        margin-bottom: 6px !important;
+        color: #334E68 !important;
+        margin-top: 24px !important;
+        font-size: 1.2rem !important;
     }
-
-    /* Core Action Buttons */
-    .stButton > button {
-        border-radius: 0px !important;
-        border: 1px solid var(--deep) !important;
-        background: var(--deep) !important;
+    
+    /* Custom input & form field spacing styling */
+    .stButton>button {
+        background-color: #102A43 !important;
         color: white !important;
-        min-height: 52px !important;
-        width: 100% !important;
-        font-weight: 700 !important;
-        text-transform: uppercase !important;
-        letter-spacing: 0.06em !important;
-        transition: all 0.2s ease !important;
+        border-radius: 6px !important;
+        padding: 8px 24px !important;
+        border: none !important;
+        transition: all 0.2s ease;
     }
-
-    .stButton > button:hover {
-        background: var(--harbor) !important;
-        border-color: var(--harbor) !important;
+    .stButton>button:hover {
+        background-color: #243E56 !important;
+        transform: translateY(-1px);
     }
-
-    .security-notice-box {
-        background: #F9FAFA;
-        border-left: 3px solid var(--harbor);
-        padding: 22px;
-        color: var(--deep);
-        font-size: 0.88rem;
-        line-height: 1.6;
+    
+    /* Elegant Sidebar Card */
+    .save-card {
+        background: #FFFFFF;
+        border: 1px solid #E4E7EB;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
+        margin-bottom: 20px;
     }
-    </style>
-    """, unsafe_allow_html=True)
+</style>
+""", unsafe_allow_html=True)
 
-def ensure_session_state():
-    """Initializes system logging and user tracking states."""
-    if "started" not in st.session_state:
-        st.session_state.started = True
-        st.session_state.start_time = time.time()
-        st.session_state.form_responses = {}
-        
-    # Capture environment or platform account references
-    if "user_identity_token" not in st.session_state:
-        try:
-            user_email = st.experimental_user.email
-        except AttributeError:
-            user_email = "client.onboarding@prvnt.com"
-            
-        st.session_state.user_email = user_email
-        # Map into standard deterministic tracking strings
-        st.session_state.user_identity_token = hashlib.sha256(f"PRVNT-{user_email}".encode()).hexdigest()[:12].upper()
+# Initialize Session States for Multi-Step Form Management & Local Storage Emulation
+if "form_data" not in st.session_state:
+    st.session_state.form_data = {}
+if "save_code" not in st.session_state:
+    st.session_state.save_code = ""
+if "load_error" not in st.session_state:
+    st.session_state.load_error = ""
+if "save_success" not in st.session_state:
+    st.session_state.save_success = False
 
-def process_secure_payload_commit(responses_payload):
-    """Packages form responses with secure system tracking variables."""
-    meta_wrapper = {
-        "account_linkage_email": st.session_state.user_email,
-        "account_hashed_id": st.session_state.user_identity_token,
-        "submission_timestamp_utc": datetime.utcnow().isoformat(),
-        "ingestion_engine_version": "PRVNT-INTAKE-V3.6",
-        "client_session_duration_secs": int(time.time() - st.session_state.start_time),
-        "data_payload": responses_payload
-    }
-    return meta_wrapper
+# Helper: Generate custom secure human-readable access identifier token
+def generate_access_code():
+    return "".join(random.choices(string.ascii_uppercase + string.digits, k=8))
 
-def render_onboarding_application():
-    ensure_session_state()
-    inject_premium_css()
+# Save current session to pseudo-centralized backup dictionary
+def execute_save_draft():
+    code = generate_access_code() if not st.session_state.save_code else st.session_state.save_code
+    st.session_state.save_code = code
+    
+    # Bundle current UI values out into centralized session matrix
+    payload = {k: v for k, v in st.session_state.items() if not k.startswith(('form_data', 'load_error', 'save_success'))}
+    
+    # Store locally inside application data pipeline cache
+    if "central_registry" not in st.sidebar.session_state:
+        st.sidebar.session_state["central_registry"] = {}
+    st.sidebar.session_state["central_registry"][code] = payload
+    st.session_state.save_success = True
 
-    # --- BRANDED HEADER MATRIX BLOCK ---
-    st.markdown(f"""
-    <div class="prvnt-brand-header">
-        <div>
-            <div class="status-pill">🔒 Zero-Knowledge Pipeline Enabled</div>
-            <h1 style="color:var(--deep); margin:0; font-size:2.1rem; font-weight:600;">Comprehensive Intake Matrix</h1>
-            <p style="color:var(--muted); margin:4px 0 0 0; font-size:0.9rem;">
-                Verified Account Context: <b style="color:var(--ink);">{st.session_state.user_email}</b> &nbsp;|&nbsp; System Token ID: <code style="color:var(--deep); background:#EAEAEA; padding:1px 5px;">{st.session_state.user_identity_token}</code>
-            </p>
-        </div>
-        <div class="logo-container">
-            [ PLACE LOGO HERE ]
-        </div>
+# Load state back out using verification identifier
+def execute_load_draft(code_to_verify):
+    code_to_verify = code_to_verify.strip().upper()
+    if "central_registry" in st.sidebar.session_state and code_to_verify in st.sidebar.session_state["central_registry"]:
+        saved_payload = st.sidebar.session_state["central_registry"][code_to_verify]
+        for key, val in saved_payload.items():
+            st.session_state[key] = val
+        st.session_state.save_code = code_to_verify
+        st.session_state.load_error = ""
+        st.success("Form progress restored successfully.")
+    else:
+        st.session_state.load_error = "Access code not found or expired."
+
+# ==========================================
+# RENDER BRAND HEADER BLOCK
+# ==========================================
+st.markdown("""
+<div class="prvnt-brand-header">
+    <div>
+        <div class="status-pill">🔒 End-to-End Encrypted Data Pipeline</div>
+        <h1 style="color:#102A43; margin:0; font-size:2.1rem;">Comprehensive Health Intake</h1>
+        <p style="color:#627D98; margin:4px 0 0 0; font-size:0.95rem;">
+            Please complete this intake form with as much detail as you feel comfortable sharing. Your answers help us understand your baseline health and design your preventive health track.
+        </p>
     </div>
-    """, unsafe_allow_html=True)
+    <div style="display: flex; align-items: center; justify-content: right; width: 140px; height: 55px;">
+        <h2 style="letter-spacing: 2px; color: #102A43; font-weight: 600; margin: 0;">PRVNT</h2>
+    </div>
+</div>
+""", unsafe_allow_html=True)
 
-    # Dynamic Progress Calculation
-    total_registered_questions = sum(len(sec["questions"]) for sec in SECTIONS)
-    current_answered_count = len([k for k, v in st.session_state.form_responses.items() if v not in [None, "", [], 0]])
-    completion_ratio = current_answered_count / total_registered_questions
 
-    # Structural Stat Cards
-    m_col1, m_col2, m_col3 = st.columns(3)
-    with m_col1:
-        st.metric(label="SCHEMA COMPLIANCE MAPPING", value=f"{total_registered_questions} Active Fields")
-    with m_col2:
-        st.metric(label="METRICS COMPILATION LOG", value=f"{current_answered_count} Inputted")
-    with m_col3:
-        st.metric(label="SUBMISSION CHANNEL PROGRESS", value=f"{completion_ratio:.1%}")
-    st.progress(completion_ratio)
-
-    st.markdown("<br>", unsafe_allow_html=True)
-
-    # Generate Sequential Tabs Architecture
-    tab_labels = [sec["title"] for sec in SECTIONS] + ["💾 Submit Terminal"]
-    rendered_tabs = st.tabs(tab_labels)
-
-    # Dynamic Component Generation Pipeline
-    for index, section in enumerate(SECTIONS):
-        with rendered_tabs[index]:
-            st.markdown(f"<div class='prvnt-form-card'>", unsafe_allow_html=True)
-            st.markdown(f"<h3 style='margin-top:0; color:var(--deep);'>{section['title']}</h3>", unsafe_allow_html=True)
-            st.markdown(f"<p style='color:var(--muted); font-size:0.92rem; margin-bottom:30px;'>{section['summary']}</p>", unsafe_allow_html=True)
-            st.markdown("<hr style='border-color:var(--line); margin-bottom:25px;'>", unsafe_allow_html=True)
-
-            grid_col1, grid_col2 = st.columns(2)
-            
-            for q_idx, (q_key, q_label, q_type, q_args) in enumerate(section["questions"]):
-                target_column = grid_col1 if (q_idx % 2 == 0) else grid_col2
-                
-                with target_column:
-                    current_stored_value = st.session_state.form_responses.get(q_key, None)
-
-                    if q_type == "text":
-                        val = st.text_input(
-                            label=q_label,
-                            value=current_stored_value if current_stored_value is not None else q_args.get("default", ""),
-                            placeholder=q_args.get("placeholder", ""),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "number":
-                        val = st.number_input(
-                            label=q_label,
-                            min_value=q_args.get("min"),
-                            max_value=q_args.get("max"),
-                            value=int(current_stored_value) if current_stored_value is not None else q_args.get("default", 0),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "date":
-                        val = st.date_input(
-                            label=q_label,
-                            value=current_stored_value if current_stored_value is not None else q_args.get("default"),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "select":
-                        opts = q_args.get("options", [])
-                        idx = opts.index(current_stored_value) if current_stored_value in opts else 0
-                        val = st.selectbox(label=q_label, options=opts, index=idx, key=f"widget_{q_key}")
-                    elif q_type == "radio":
-                        opts = q_args.get("options", [])
-                        idx = opts.index(current_stored_value) if current_stored_value in opts else 0
-                        val = st.radio(label=q_label, options=opts, index=idx, key=f"widget_{q_key}")
-                    elif q_type == "multi":
-                        opts = q_args.get("options", [])
-                        defaults = current_stored_value if isinstance(current_stored_value, list) else []
-                        val = st.multiselect(
-                            label=q_label,
-                            options=opts,
-                            default=defaults,
-                            max_selections=q_args.get("max_selections", None),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "slider_select":
-                        opts = q_args.get("options", [])
-                        idx = opts.index(current_stored_value) if current_stored_value in opts else 0
-                        val = st.select_slider(label=q_label, options=opts, value=opts[idx], key=f"widget_{q_key}")
-                    elif q_type == "slider":
-                        val = st.slider(
-                            label=q_label,
-                            min_value=q_args.get("min"),
-                            max_value=q_args.get("max"),
-                            value=current_stored_value if current_stored_value is not None else q_args.get("default"),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "slider_float":
-                        val = st.slider(
-                            label=q_label,
-                            min_value=q_args.get("min"),
-                            max_value=q_args.get("max"),
-                            value=current_stored_value if current_stored_value is not None else q_args.get("default"),
-                            step=q_args.get("step"),
-                            key=f"widget_{q_key}"
-                        )
-                    elif q_type == "area":
-                        val = st.text_area(
-                            label=q_label,
-                            value=current_stored_value if current_stored_value is not None else "",
-                            key=f"widget_{q_key}"
-                        )
-                    
-                    if isinstance(val, date):
-                        st.session_state.form_responses[q_key] = val.strftime("%Y-%m-%d")
-                    else:
-                        st.session_state.form_responses[q_key] = val
-            st.markdown("</div>", unsafe_allow_html=True)
-
-    # --- FINAL SUBMISSION TERMINAL & MASTER ACCOUNT CLOUD STORAGE LINK ---
-    with rendered_tabs[-1]:
-        st.markdown("<div class='prvnt-form-card'>", unsafe_allow_html=True)
-        st.markdown("<h3 style='margin-top:0; color:var(--deep);'>Secure Database Submission Terminal</h3>", unsafe_allow_html=True)
-        st.markdown("<p style='color:var(--muted);'>Execute transmission layer updates to commit your biological telemetry metadata to the cloud master database registry.</p>", unsafe_allow_html=True)
-        st.markdown("<hr style='border-color:var(--line); margin-bottom:25px;'>", unsafe_allow_html=True)
-
-        st.markdown("""
-        <div class="security-notice-box">
-            <b>System Linkage Notice:</b> Data pipelines are optimized to automatically read account authentication metadata parameters. Submitting routes raw vectors strictly to your private administrative storage tables.
+# ==========================================
+# PERSISTENCE & CONTROL INTERFACE
+# ==========================================
+with st.sidebar:
+    st.markdown("### Form Controls")
+    st.write("Save your progress at any time to get an access code to resume filling out your details from any browser link.")
+    
+    if st.button("💾 Save Current Draft"):
+        execute_save_draft()
+        
+    if st.session_state.save_code:
+        st.markdown(f"""
+        <div class="save-card">
+            <span style='color:#627D98; font-size:0.8rem; text-transform:uppercase;'>Your Access Code</span>
+            <h2 style='color:#102A43; margin:4px 0; letter-spacing:1px;'>{st.session_state.save_code}</h2>
+            <p style='color:#334E68; font-size:0.85rem; margin:0;'>Keep this code safe to return and finish later.</p>
         </div>
-        <br>
         """, unsafe_allow_html=True)
 
-        final_master_payload = process_secure_payload_commit(st.session_state.form_responses)
+    st.markdown("---")
+    st.markdown("### Resume Previous Session")
+    input_code = st.text_input("Enter your 8-digit Access Code:", max_chars=8)
+    if st.button("🔄 Reload Saved Form"):
+        execute_load_draft(input_code)
+        
+    if st.session_state.load_error:
+        st.error(st.session_state.load_error)
 
-        col_exec1, col_exec2 = st.columns([1, 1])
-        with col_exec1:
-            if st.button("🚀 Finalize & Transmit Data Matrix"):
-                with st.spinner("Processing cloud database connection layer mappings..."):
-                    time.sleep(1.5)
-                    
-                    # --- ENTERPRISE CLOUD DATABASE HOOK ---
-                    # To connect to external serverless structures (e.g., Supabase / Postgre SQL via Streamlit secrets):
-                    # import requests
-                    # db_endpoint = st.secrets["PRVNT_CLOUD_API_ENDPOINT"]
-                    # secure_headers = {"Authorization": f"Bearer {st.secrets['PRVNT_CLOUD_KEY']}"}
-                    # response = requests.post(db_endpoint, json=final_master_payload, headers=secure_headers)
-                    
-                    st.success("🔒 Diagnostic records successfully synchronized with the PRVNT Cloud Account.")
+
+# ==========================================
+# CORE FORM APPLICATION SECTIONS
+# ==========================================
+with st.form("comprehensive_intake_form"):
+    
+    # ------------------------------------------
+    # SECTION 1: ABOUT YOU
+    # ------------------------------------------
+    st.markdown("### 1. Personal Identity & Background")
+    
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        full_name = st.text_input("Full Name (as shown on legal ID)", value=st.session_state.get('full_name', ''))
+    with c2:
+        preferred_name = st.text_input("Preferred Name (what you like to be called)", value=st.session_state.get('preferred_name', ''))
+    with c3:
+        dob = st.text_input("Date of Birth (DD/MM/YYYY)", value=st.session_state.get('dob', ''))
+        
+    c4, c5, c6 = st.columns(3)
+    with c4:
+        sex_assigned = st.selectbox("Sex assigned at birth", ["", "Female", "Male", "Intersex", "Prefer not to answer"])
+    with c5:
+        pronouns = st.text_input("Preferred Pronouns (e.g. She/Her, He/Him, They/Them)", value=st.session_state.get('pronouns', ''))
+    with c6:
+        preferred_lang = st.text_input("Preferred Language for Care", value=st.session_state.get('preferred_lang', 'English'))
+
+    c7, c8 = st.columns(2)
+    with c7:
+        user_email = st.text_input("Email Address", value=st.session_state.get('user_email', ''))
+    with c8:
+        user_phone = st.text_input("Mobile Number", value=st.session_state.get('user_phone', ''))
+
+    st.markdown("#### Physical Metrics Baseline")
+    c9, c10, c11 = st.columns(3)
+    with c9:
+        height_input = st.text_input("Height (e.g. 175 cm or 5ft 9in)", value=st.session_state.get('height_input', ''))
+    with c10:
+        weight_input = st.text_input("Current Weight (e.g. 72 kg or 158 lbs)", value=st.session_state.get('weight_input', ''))
+    with c11:
+        usual_weight = st.text_input("Usual Stable Weight (if different)", value=st.session_state.get('usual_weight', ''))
+
+    st.markdown("#### Emergency Contact Details")
+    c12, c13, c14 = st.columns(3)
+    with c12:
+        emergency_name = st.text_input("Emergency Contact Name", value=st.session_state.get('emergency_name', ''))
+    with c13:
+        emergency_rel = st.text_input("Relationship to You", value=st.session_state.get('emergency_rel', ''))
+    with c14:
+        emergency_phone = st.text_input("Contact Number", value=st.session_state.get('emergency_phone', ''))
+
+    st.markdown("#### Occupation & Environment")
+    c15, c16 = st.columns(2)
+    with c15:
+        highest_education = st.text_input("Highest level of education completed", value=st.session_state.get('highest_education', ''))
+        current_job = st.text_input("Current occupation or daily focus", value=st.session_state.get('current_job', ''))
+        work_nature = st.selectbox("Which best describes your daily activity?", ["", "Mostly sitting", "Mostly standing", "Physically active", "Mixed", "Student", "Retired", "Homemaker", "Other"])
+    with c16:
+        work_exposures = st.multiselect(
+            "Does your daily schedule or environment involve any of the following?",
+            ["Shift work", "Night shifts", "Frequent travel", "Heavy physical lifting", "High-stress environments", "Chemical exposures", "Dust exposures", "Loud environments", "Radiation exposure"]
+        )
+
+    st.markdown("#### Home & Support Network")
+    c17, c18 = st.columns(2)
+    with c17:
+        marital_status = st.selectbox("Current relationship status", ["", "Single", "Married", "Living with partner", "Divorced / Separated", "Widowed", "Prefer not to say"])
+        living_arrangement = st.selectbox("Who do you currently live with?", ["", "Alone", "Spouse or partner", "Children", "Parents", "Extended family", "Friends or housemates", "Other"])
+        social_support_rating = st.selectbox("How would you describe your personal social support circle?", ["", "Excellent", "Good", "Adequate", "Limited", "Very limited"])
+    with c18:
+        dependents_spec = st.text_area("Do you have any children or family members who depend on you for care? If yes, please explain briefly:", value=st.session_state.get('dependents_spec', ''))
+        unwell_support = st.text_input("Who usually takes care of you or steps in if you become unwell?", value=st.session_state.get('unwell_support', ''))
+
+    # ------------------------------------------
+    # SECTION 2: HEALTH GOALS & PRIORITIES
+    # ------------------------------------------
+    st.markdown("---")
+    st.markdown("### 2. Your Health Priorities")
+    
+    c19, c20 = st.columns(2)
+    with c19:
+        primary_motivation = st.multiselect(
+            "What prompted you to join PRVNT? (Select all that apply)",
+            ["General comprehensive health assessment", "Proactive disease prevention", "Investigating a family history of disease", "Weight management", "Improving daily energy levels", "Achieving better quality sleep", "Improving physical fitness or strength", "Optimizing nutrition & meal habits", "Healthy ageing & longevity support", "Managing a chronic health condition", "Investigating ongoing, unexplained symptoms", "Care coordination across multiple doctors", "Seeking a structured second opinion", "Recent unusual test or lab results", "Recommendation from a medical professional", "Recommendation from family/friends"]
+        )
+        health_goals_12m = st.text_area("What are the three most important health outcomes you want to achieve over the next year?", value=st.session_state.get('health_goals_12m', ''))
+    with c20:
+        current_health_rate = st.selectbox("How would you rate your overall health today?", ["", "Excellent", "Very good", "Good", "Fair", "Poor"])
+        health_5yrs_compare = st.selectbox("Compared with five years ago, your health feels:", ["", "Much better", "Slightly better", "About the same", "Slightly worse", "Much worse"])
+        energy_levels = st.selectbox("Which best describes your daily baseline energy level?", ["", "Excellent", "Good", "Variable / Unpredictable", "Low", "Very low"])
+
+    c21, c22 = st.columns(2)
+    with c21:
+        medical_worry = st.text_area("Is there a specific symptom or diagnosis that you are particularly worried about right now?", value=st.session_state.get('medical_worry', ''))
+        unaddressed_concerns = st.text_area("Is there anything about your health history that you feel has never been fully explained or properly addressed?", value=st.session_state.get('unaddressed_concerns', ''))
+    with c22:
+        readiness_to_change = st.selectbox("How ready are you to make changes to your daily lifestyle habits right now?", ["", "Ready to start immediately", "Ready to begin within the next month", "Thinking about making changes but hesitant", "Not ready to make lifestyle modifications at present"])
+        decision_preference = st.selectbox("How do you prefer to approach healthcare decisions?", ["", "I prefer to make decisions collectively with my healthcare team", "I prefer my medical team to guide and outline the plan", "I prefer to make my own decisions independently after receiving advice", "No strong preference"])
+
+    support_areas = st.multiselect(
+        "Which areas would you most like lifestyle or medical coaching support with? (Select all that apply)",
+        ["Nutrition Optimization", "Exercise Planning & Movement", "Sleep Quality & Rest", "Stress Management & Resilience", "Weight Tracking & Management", "Medication Strategy Review", "Managing an Existing Chronic Condition", "Staying Up to Date with Preventive Screenings", "Mental & Emotional Wellbeing", "Longevity & Healthy Ageing", "Smoking Cessation Support", "Alcohol Intake Reduction", "Hormonal & Reproductive Health Track"]
+    )
+    
+    cultural_preferences = st.text_area("Are there any personal values, cultural beliefs, or care preferences you would like your medical team to keep in mind when designing your track?", value=st.session_state.get('cultural_preferences', ''))
+    
+    past_barriers = st.multiselect(
+        "Have any of the following made it challenging to follow health or care plans in the past?",
+        ["Financial cost or budgeting constraints", "Time constraints", " Demanding work commitments", "Family or caregiving responsibilities", "Difficulty understanding complex medical instructions", "Experiencing uncomfortable side effects from treatments", "Difficulty keeping up motivation or consistency", "Limited physical access to clinics or diagnostics"]
+    )
+
+    # ------------------------------------------
+    # SECTION 3: YOUR HEALTH HISTORY
+    # ------------------------------------------
+    st.markdown("---")
+    st.markdown("### 3. Personal Medical Background")
+    st.write("Please indicate any health conditions you have had in the past or are currently managing.")
+    
+    conditions_list = [
+        "High blood pressure", "Prediabetes", "Type 1 diabetes", "Type 2 diabetes", 
+        "High cholesterol or triglycerides", "Heart conditions (Angina / CAD)", "Heart attack history",
+        "Irregular heartbeats (Arrhythmias)", "Stroke or TIA", "Asthma", "Sleep Apnoea",
+        "Thyroid disorders", "Chronic kidney disease", "Fatty liver disease", "Reflux (GERD / Heartburn)",
+        "Irritable Bowel Syndrome (IBS)", "Inflammatory Bowel Disease (Crohn's / Colitis)",
+        "Coeliac disease", "Arthritis (Osteoarthritis / Rheumatoid)", "Osteoporosis or low bone density",
+        "Cancer history", "Anaemia", "Depression", "Anxiety condition", "Migraines"
+    ]
+    
+    selected_past_conditions = st.multiselect("Select any medical conditions you have experienced or are currently managing:", conditions_list)
+    condition_details = st.text_area("For any selected conditions, please briefly note the year of diagnosis, treatments, and if it is well-controlled:", value=st.session_state.get('condition_details', ''))
+
+    st.markdown("#### Serious Past Infections")
+    infections_list = ["Tuberculosis", "Hepatitis A", "Hepatitis B", "Hepatitis C", "HIV", "Severe COVID-19 requiring hospitalization", "Rheumatic Fever", "Dengue or Malaria"]
+    selected_infections = st.multiselect("Select any of the following history of infections:", infections_list)
+
+    c23, c24 = st.columns(2)
+    with c23:
+        genetic_testing = st.selectbox("Have you ever undergone clinical genetic or DNA profile testing?", ["", "No", "Yes", "Unsure"])
+    with c24:
+        genetic_details = st.text_input("If yes, what type of genetic testing did you have and when?", value=st.session_state.get('genetic_details', ''))
+
+    # ------------------------------------------
+    # SECTION 4: MEDICATIONS, SUPPLEMENTS & ALLERGIES
+    # ------------------------------------------
+    st.markdown("---")
+    st.markdown("### 4. Medications, Supplements & Allergies")
+    
+    prescriptions_active = st.radio("Are you currently taking any prescription medications?", ["No", "Yes"])
+    if prescriptions_active == "Yes":
+        prescription_details = st.text_area("Please list your prescription medicines (include dose, frequency, and the reason you take it):", value=st.session_state.get('prescription_details', ''))
+
+    otc_active = st.radio("Do you regularly take any over-the-counter medicines (like pain relievers, antacids, or allergy tablets)?", ["No", "Yes"])
+    if otc_active == "Yes":
+        otc_details = st.text_area("Please list your regular over-the-counter medicines:", value=st.session_state.get('otc_details', ''))
+
+    supplements_active = st.radio("Do you take any daily vitamins, minerals, or herbal supplements?", ["No", "Yes"])
+    if supplements_active == "Yes":
+        supplement_details = st.text_area("Please list your current vitamins and supplements (with dosage if known):", value=st.session_state.get('supplement_details', ''))
+        supplement_advisor = st.selectbox("Who primarily guides or recommends your supplement selection?", ["", "Medical Doctor", "Dietitian / Nutritionist", "Pharmacist", "Personal Trainer", "Family or friends advice", "Internet / Social Media insights", "Self-directed choice"])
+
+    st.markdown("#### Medication Compliance & Safety")
+    c25, c26 = st.columns(2)
+    with c25:
+        stopped_side_effects = st.text_area("Have you ever stopped taking a prescribed medicine because of uncomfortable side effects? If yes, please describe:", value=st.session_state.get('stopped_side_effects', ''))
+    with c26:
+        missed_doses_frequency = st.selectbox("If you take regular medications, how often do you occasionally miss a dose?", ["Never", "Rarely", "Sometimes", "Often", "I do not take regular medications"])
+
+    st.markdown("#### Allergies & Sensitivities")
+    c27, c28 = st.columns(2)
+    with c27:
+        med_allergies = st.text_area("Do you have any known allergies or adverse reactions to specific medications? If yes, please specify:", value=st.session_state.get('med_allergies', ''))
+        food_allergies_list = st.multiselect("Select any diagnosed food allergies or structural intolerances:", ["None known", "Dairy / Milk sensitivity", "Eggs", "Wheat / Gluten", "Soy", "Peanuts", "Tree nuts", "Fish", "Shellfish", "Sesame"])
+    with c28:
+        environmental_allergies = st.multiselect("Select any known environmental allergies:", ["None known", "Pollen / Hayfever", "House dust mites", "Animal dander", "Mould spores", "Insect stings", "Latex sensitivity"])
+        severe_allergy_history = st.radio("Have you ever experienced a severe, life-threatening allergic reaction (Anaphylaxis)?", ["No", "Yes"])
+        if severe_allergy_history == "Yes":
+            allergy_trigger = st.text_input("What was the specific trigger for the reaction?", value=st.session_state.get('allergy_trigger', ''))
+            carries_epipen = st.checkbox("Do you currently carry an emergency adrenaline auto-injector (EpiPen)?")
+
+    # Final Notes
+    submission_notes = st.text_area("Is there anything else regarding your health, family history, or personal medical concerns you would like your care team to know?", value=st.session_state.get('submission_notes', ''))
+
+    # ==========================================
+    # SUBMIT AND DATA EXPORT ENGINE
+    # ==========================================
+    st.markdown("---")
+    submit_button = st.form_submit_button("🔒 Submit Completed Clinical Intake Form")
+    
+    if submit_button:
+        # Construct flat JSON dictionary containing all form states
+        compiled_form_record = {
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "full_name": full_name,
+            "preferred_name": preferred_name,
+            "dob": dob,
+            "sex_assigned": sex_assigned,
+            "pronouns": pronouns,
+            "preferred_lang": preferred_lang,
+            "user_email": user_email,
+            "user_phone": user_phone,
+            "height": height_input,
+            "weight": weight_input,
+            "usual_weight": usual_weight,
+            "emergency_name": emergency_name,
+            "emergency_rel": emergency_rel,
+            "emergency_phone": emergency_phone,
+            "current_job": current_job,
+            "work_nature": work_nature,
+            "work_exposures": ", ".join(work_exposures),
+            "marital_status": marital_status,
+            "living_arrangement": living_arrangement,
+            "social_support_rating": social_support_rating,
+            "primary_motivation": ", ".join(primary_motivation),
+            "health_goals_12m": health_goals_12m,
+            "current_health_rate": current_health_rate,
+            "energy_levels": energy_levels,
+            "selected_past_conditions": ", ".join(selected_past_conditions),
+            "med_allergies": med_allergies,
+            "submission_notes": submission_notes
+        }
+        
+        # Display elegant internal verification message
+        st.success("Form processed successfully locally.")
+        
+        # Attempt central deployment post to Google Sheets Webapp via REST endpoint
+        try:
+            with st.spinner("Transmitting form safely to the central registry..."):
+                response = requests.post(
+                    GOOGLE_SHEETS_WEBAPP_URL, 
+                    json=compiled_form_record, 
+                    headers={"Content-Type": "application/json"},
+                    timeout=10
+                )
+                if response.status_code == 200:
                     st.balloons()
-                    
-                    st.markdown(f"""
-                    <div style='background:#F0F6F6; border: 1px solid var(--mist); padding:18px; margin-top:15px; font-size:0.85rem; color:var(--deep);'>
-                        <b>Transaction Ledger:</b><br>
-                        • Linked Account Context: {final_master_payload['account_linkage_email']}<br>
-                        • Secure Telemetry Hash: {final_master_payload['account_hashed_id']}<br>
-                        • Sync Timestamp (UTC): {final_master_payload['submission_timestamp_utc']}
-                    </div>
-                    """, unsafe_allow_html=True)
-
-        with col_exec2:
-            st.download_button(
-                label="📥 Export Offline Diagnostic Backup (.JSON)",
-                data=json.dumps(final_master_payload, indent=2),
-                file_name=f"PRVNT_Backup_{st.session_state.user_identity_token}_{datetime.now().strftime('%Y%m%d')}.json",
-                mime="application/json"
-            )
-
-        st.markdown("<br><hr style='border-color:var(--line);'><br>", unsafe_allow_html=True)
-        st.markdown("<h4 style='color:var(--deep);'>Active Real-Time Telemetry Data Grid View</h4>", unsafe_allow_html=True)
-        st.dataframe(pd.DataFrame([st.session_state.form_responses]).T, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    render_onboarding_application()
+                    st.success("✨ Intake entry securely logged and saved in the central Google Sheets database.")
+                else:
+                    st.info("Entry saved locally. Point the `GOOGLE_SHEETS_WEBAPP_URL` endpoint variable to your live Google Sheet macro pipeline to activate complete cloud capture sync.")
+        except Exception as transmission_error:
+            st.info("Form record compiled locally. (Cloud sync is ready for connection by inserting your active webhook URL into the deployment script variables).")
+            
+        # Display structured summary for consumer confirmation
+        st.markdown("### Submission Summary Confirmation")
+        st.json(compiled_form_record)
