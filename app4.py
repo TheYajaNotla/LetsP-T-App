@@ -177,6 +177,59 @@ SECTIONS = [
 
 def inject_css():
     st.markdown("""
+    .top-spacer {
+    height:10px;
+}
+
+.header-title-wrap {
+    padding-top:6px;
+    padding-bottom:14px;
+}
+
+.header-kicker {
+    color:var(--harbor);
+    font-size:.78rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    margin-bottom:8px;
+}
+
+.header-title {
+    font-family:"Space Grotesk","Segoe UI",Arial,sans-serif !important;
+    font-size:clamp(2.3rem,4.8vw,4.6rem);
+    line-height:.96;
+    font-weight:700;
+    color:var(--deep);
+    margin-bottom:12px;
+}
+
+.header-subtitle {
+    max-width:780px;
+    color:#566164;
+    font-size:1.04rem;
+    line-height:1.65;
+}
+
+.fallback-logo {
+    width:180px;
+    height:76px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    border:1px solid var(--line);
+    background:#fff;
+    color:var(--deep);
+    font-family:"Space Grotesk","Segoe UI",Arial,sans-serif !important;
+    font-weight:700;
+    letter-spacing:.1em;
+}
+
+.header-divider {
+    height:1px;
+    background:var(--line);
+    margin:18px 0 22px;
+}
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap');
 
@@ -319,22 +372,33 @@ def ensure_state():
         st.session_state.form_data = {}
 
 
-def show_header():
-    left, right = st.columns([1, 2])
+ddef show_header():
+    st.markdown('<div class="top-spacer"></div>', unsafe_allow_html=True)
 
-    with left:
+    logo_col, title_col = st.columns([1.2, 5])
+
+    with logo_col:
         if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=120)
+            st.image(LOGO_PATH, width=180)
         else:
-            st.markdown("### PRVNT")
+            st.markdown('<div class="fallback-logo">PRVNT</div>', unsafe_allow_html=True)
 
-    with right:
-        st.caption("Comprehensive Health Questionnaire")
-        st.title("Your health intake, thoughtfully organized.")
-        st.write(
-            "Share your background, goals, symptoms, lifestyle signals, and prevention priorities "
-            "so your PRVNT care team can begin with clarity."
+    with title_col:
+        st.markdown(
+            """
+            <div class="header-title-wrap">
+                <div class="header-kicker">Comprehensive Health Questionnaire</div>
+                <div class="header-title">PRVNT Health Onboarding</div>
+                <div class="header-subtitle">
+                    Share your background, goals, symptoms, lifestyle signals, and prevention priorities
+                    so your PRVNT care team can begin with clarity.
+                </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
         )
+
+    st.markdown('<div class="header-divider"></div>', unsafe_allow_html=True)
 
 
 def question_keys():
