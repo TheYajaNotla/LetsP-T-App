@@ -711,12 +711,14 @@ def main():
     minutes, seconds = divmod(elapsed, 60)
     progress = answered / total if total else 0
 
+    logo = logo_html()
+
     st.markdown(
         f"""
         <header class="prvnt-header">
             <div class="brand-row">
                 <div class="brand-left">
-                    <div class="logo-mark">{logo_html()}</div>
+                    <div class="logo-mark">{logo}</div>
                     <div>
                         <div class="brand-name">PRVNT</div>
                         <div class="brand-subtitle">Comprehensive Health Questionnaire</div>
@@ -748,7 +750,7 @@ def main():
         """,
         unsafe_allow_html=True,
     )
-    
+
     st.progress(progress)
 
     tabs = st.tabs([section["title"] for section in SECTIONS] + ["Review"])
