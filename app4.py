@@ -378,12 +378,12 @@ def show_header():
     logo_col, title_col = st.columns([1.2, 5])
 
     with logo_col:
-    st.write("")
-    st.write("")
-    if os.path.exists(LOGO_PATH):
-        st.image(LOGO_PATH, width=180)
-    else:
-        st.markdown('<div class="fallback-logo">PRVNT</div>', unsafe_allow_html=True)
+        st.write("")
+        st.write("")
+        if os.path.exists(LOGO_PATH):
+            st.image(LOGO_PATH, width=180)
+        else:
+            st.markdown('<div class="fallback-logo">PRVNT</div>', unsafe_allow_html=True)
 
     with title_col:
         st.markdown(
