@@ -324,7 +324,7 @@ def show_header():
 
     with left:
         if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=120)
+            st.image(LOGO_PATH, width=1200)
         else:
             st.markdown("### PRVNT")
 
