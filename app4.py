@@ -116,34 +116,34 @@ SECTIONS = [
         "title": "Symptoms",
         "summary": "A focused review of symptoms across body systems.",
         "questions": [
-            ("sym_fever", "Recurrent fevers, dynamic temperature shifts, or nocturnal night sweats?", "slider_select", {"options": FREQ}),
+            ("sym_fever", "Recurrent fevers, dynamic temperature shifts or nocturnal night sweats?", "slider_select", {"options": FREQ}),
             ("sym_weight_change", "Unintentional, rapid modifications to body weight parameters?", "slider_select", {"options": FREQ}),
             ("sym_fatigue", "Persistent exhaustion that disrupts normal cognitive or physical focus?", "slider_select", {"options": FREQ}),
-            ("sym_rash", "Recurring skin rashes, unexpected dermal changes, or barrier shifts?", "slider_select", {"options": FREQ}),
+            ("sym_rash", "Recurring skin rashes, unexpected dermal changes or barrier shifts?", "slider_select", {"options": FREQ}),
             ("sym_bruising", "Tendency to bruise easily or develop unprovoked hematomas?", "slider_select", {"options": FREQ}),
             ("sym_hair_loss", "Accelerated hair loss or sudden thinning?", "slider_select", {"options": FREQ}),
             ("sym_headache", "Frequent localized headaches, dynamic tension bands, or visual migraines?", "slider_select", {"options": FREQ}),
             ("sym_dizziness", "Vertigo, unsteadiness, or orthostatic fainting sensations?", "slider_select", {"options": FREQ}),
             ("sym_vision", "Unexplained or sudden adjustments to visual clarity?", "slider_select", {"options": FREQ}),
-            ("sym_chest_pain", "Cardiovascular pressure, restrictive chest pain, or radiating tightness?", "slider_select", {"options": FREQ}),
+            ("sym_chest_pain", "Cardiovascular pressure, restrictive chest pain or radiating tightness?", "slider_select", {"options": FREQ}),
             ("sym_palpitations", "Premature atrial fluttering, skipped beats, or rapid unprovoked racing?", "slider_select", {"options": FREQ}),
             ("sym_breathlessness", "Shortness of breath (dyspnoea) at rest or under minor physical workloads?", "slider_select", {"options": FREQ}),
-            ("sym_reflux", "Gastrointestinal reflux, frequent pyrosis, or acid indigestion?", "slider_select", {"options": FREQ}),
+            ("sym_reflux", "Gastrointestinal reflux orindigestion?", "slider_select", {"options": FREQ}),
             ("sym_abdominal_pain", "Unspecified abdominal pain, bloating, or visceral layout cramping?", "slider_select", {"options": FREQ}),
             ("sym_bowel_change", "Recent or persistent changes to regular bowel habit outputs?", "slider_select", {"options": FREQ}),
-            ("sym_joint_pain", "Articular joint pain, early morning stiffness, or structural fluid swelling?", "slider_select", {"options": FREQ}),
+            ("sym_joint_pain", "Articular joint pain, early morning stiffness or structural fluid swelling?", "slider_select", {"options": FREQ}),
             ("sym_numbness", "Peripheral neuropathy, unexpected tingling, or focal motor weakness tracks?", "slider_select", {"options": FREQ}),
             ("sym_cold_intolerance", "Abnormal physical sensitivity or low tolerance to cool environments?", "slider_select", {"options": FREQ}),
             ("sym_thirst", "Persistent unprovoked thirst (polydipsia indicators)?", "slider_select", {"options": FREQ}),
-            ("sym_anxiety", "Persistent psychological anxiety, hyperarousal, or difficulty relaxing?", "slider_select", {"options": FREQ}),
-            ("sym_sadness", "Prolonged flat affect, feelings of low mood, or diminished motivation?", "slider_select", {"options": FREQ}),
-            ("sym_other_details", "Clarify any alternative physical anomalies or trends our clinical team should look into:", "area", {}),
+            ("sym_anxiety", "Persistent psychological anxiety, hyperarousal or difficulty relaxing?", "slider_select", {"options": FREQ}),
+            ("sym_sadness", "Prolonged flat affect, feelings of low mood or diminished motivation?", "slider_select", {"options": FREQ}),
+            ("sym_other_details", "Clarify any alternative symptoms or trends our clinical team should look into:", "area", {}),
         ],
         
     },
     {
         "title": "Lifestyle",
-        "summary": "Nutrition, movement, sleep, stress, substances, and environment.",
+        "summary": "Nutrition, movement, sleep, stress, substances and environment.",
         "questions": [
             ("diet_pattern", "Usual eating pattern", "select", {"options": ["Omnivore", "Mediterranean-style", "Vegetarian", "Vegan", "Pescatarian", "Low-carbohydrate", "Ketogenic", "Intermittent fasting", "Other"]}),
             ("veg_servings_day", "Vegetable servings consumed daily", "select", {"options": ["None", "1-2", "3-4", "5 or more"]}),
@@ -159,7 +159,7 @@ SECTIONS = [
     },
     {
         "title": "Preventive Care",
-        "summary": "Screenings, vaccines, dental, vision, and proactive priorities.",
+        "summary": "Screenings, vaccines, dental, vision and proactive priorities.",
         "questions": [
             ("bp_recent", "Do you know your recent blood pressure?", "text", {"placeholder": "Example: 120/80, unknown"}),
             ("labs_recent", "Have you had blood tests in the past 12 months?", "radio", {"options": YES_NO_UNSURE}),
@@ -324,7 +324,7 @@ def show_header():
 
     with left:
         if os.path.exists(LOGO_PATH):
-            st.image(LOGO_PATH, width=240)
+            st.image(LOGO_PATH, width=120)
         else:
             st.markdown("### PRVNT")
 
